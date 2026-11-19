@@ -1,6 +1,6 @@
 {
   "name": "@dev4press/field-text",
-  "version": "0.9.1",
+  "version": "1.0.0",
   "description": "Modular TypeScript library for working with input fields.",
   "type": "module",
   "main": "./dist/fieldtext.umd.cjs",
@@ -8,25 +8,36 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/fieldtext.js",
-      "require": "./dist/fieldtext.umd.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/fieldtext.js"
+      },
+      "require": {
+        "types": "./types/index.d.cts",
+        "default": "./dist/fieldtext.umd.cjs"
+      }
     },
-    "./fieldtext.css": "./dist/fieldtext.css"
+    "./fieldtext.css": {
+      "types": "./types/fieldtext.css.d.ts",
+      "default": "./dist/fieldtext.css"
+    }
   },
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:package": "npm run build && tsc --ignoreConfig --noEmit --strict --module node16 --target es2022 test/package/esm.mts test/package/commonjs.cts",
     "lint:ts": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"vite.config.ts\"",
     "lint:scss": "stylelint \"src/**/*.scss\"",
     "lint": "npm run lint:ts && npm run lint:scss",
-    "format": "prettier --write \"src/**/*.{ts,scss}\" \"test/**/*.ts\" \"vite.config.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,scss}\" \"test/**/*.ts\" \"vite.config.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,scss}\" \"test/**/*.{ts,mts,cts}\" \"types/**/*.{ts,cts}\" \"vite.config.ts\" \"eslint.config.js\"",
+    "format:check": "prettier --check \"src/**/*.{ts,scss}\" \"test/**/*.{ts,mts,cts}\" \"types/**/*.{ts,cts}\" \"vite.config.ts\" \"eslint.config.js\"",
     "build": "npm run check && vite build && tsc -p tsconfig.lib.json",
     "predev": "npm run build",
     "dev": "vite"
   },
   "files": [
     "dist",
+    "types",
     "license.txt",
     "readme.md",
     "changelog.md",
@@ -55,18 +66,19 @@
   ],
   "author": "Milan Petrovic",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/jsdom": "^30.0.0",
-    "@types/node": "^24.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "eslint": "^8.57.1",
-    "jsdom": "^30.0.1",
-    "prettier": "^3.9.6",
-    "sass": "^1.83.4",
-    "stylelint": "^16.26.1",
-    "stylelint-config-standard-scss": "^16.0.0",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
+    "sass": "^1.108.2",
+    "stylelint": "^18.0.0",
+    "stylelint-config-standard-scss": "^18.0.0",
     "typescript": "^6.0.3",
-    "vite": "^8.2.1",
-    "vitest": "^4.1.11"
+    "typescript-eslint": "^8.73.0",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
   }
 }

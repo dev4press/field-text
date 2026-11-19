@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FieldTextCounter } from '../../src/counter';
+
+afterEach(() => {
+  document.body.replaceChildren();
+  vi.useRealTimers();
+});
 
 describe('FieldTextCounter', () => {
   it('counts, formats, and warns as the field changes', () => {
@@ -36,6 +41,79 @@ describe('FieldTextCounter', () => {
 
     expect(field.value).toBe('12345');
     expect(counter.getCount()).toBe(5);
+  });
+
+  it('preserves existing text and the caret when a middle insertion overflows', () => {
+    const field = document.createElement('textarea');
+    field.value = 'ABCDE';
+    document.body.append(field);
+    const counter = new FieldTextCounter(field, { maxChars: 5 });
+    field.focus();
+    field.setSelectionRange(2, 2);
+    field.dispatchEvent(
+      new InputEvent('beforeinput', { inputType: 'insertText' }),
+    );
+    field.setRangeText('x', 2, 2, 'end');
+    field.dispatchEvent(new InputEvent('input', { inputType: 'insertText' }));
+
+    expect(field.value).toBe('ABCDE');
+    expect(field.selectionStart).toBe(2);
+    expect(field.selectionEnd).toBe(2);
+    expect(counter.element?.textContent).toBe('5 / 5 characters');
+  });
+
+  it('preserves existing text when a browser emits only an input event', () => {
+    const field = document.createElement('textarea');
+    field.value = 'ABCDE';
+    const counter = new FieldTextCounter(field, { maxChars: 5 });
+    field.setRangeText('x', 2, 2, 'end');
+    field.dispatchEvent(new InputEvent('input', { inputType: 'insertText' }));
+
+    expect(field.value).toBe('ABCDE');
+    expect(field.selectionStart).toBe(2);
+    expect(counter.getCount()).toBe(5);
+  });
+
+  it('accepts the portion of an append that fits and keeps the caret there', () => {
+    const field = document.createElement('textarea');
+    field.value = 'ABC';
+    new FieldTextCounter(field, { maxChars: 5 });
+    field.setSelectionRange(3, 3);
+    field.dispatchEvent(
+      new InputEvent('beforeinput', { inputType: 'insertFromPaste' }),
+    );
+    field.setRangeText('DEFG', 3, 3, 'end');
+    field.dispatchEvent(
+      new InputEvent('input', { inputType: 'insertFromPaste' }),
+    );
+
+    expect(field.value).toBe('ABCDE');
+    expect(field.selectionStart).toBe(5);
+  });
+
+  it('waits for IME composition to finish before enforcing the limit', () => {
+    const field = document.createElement('textarea');
+    const counter = new FieldTextCounter(field, { maxChars: 2 });
+    field.dispatchEvent(new CompositionEvent('compositionstart'));
+    field.value = '漢字仮';
+    field.dispatchEvent(new InputEvent('input', { isComposing: true }));
+    counter.update();
+    expect(field.value).toBe('漢字仮');
+
+    field.dispatchEvent(new CompositionEvent('compositionend'));
+    expect(field.value).toBe('漢字');
+    expect(counter.element?.textContent).toBe('2 / 2 characters');
+  });
+
+  it('handles an input event marked as composing without a compositionstart event', () => {
+    const field = document.createElement('textarea');
+    new FieldTextCounter(field, { maxChars: 2 });
+    field.value = '漢字仮';
+    field.dispatchEvent(new InputEvent('input', { isComposing: true }));
+    expect(field.value).toBe('漢字仮');
+
+    field.dispatchEvent(new InputEvent('input'));
+    expect(field.value).toBe('漢字');
   });
 
   it('uses maxlength when maxChars is not configured', () => {
@@ -146,6 +224,26 @@ describe('FieldTextCounter', () => {
     ).toBe(true);
   });
 
+  it('keeps a focus-only counter hidden on load and after a deferred paste', () => {
+    vi.useFakeTimers();
+    const field = document.createElement('textarea');
+    field.setAttribute('data-field-text-counter', '');
+    document.body.append(field);
+    const [counter] = FieldTextCounter.autoLoad();
+    const visibleClass = 'field-text-counter--visible';
+    expect(counter?.element?.classList.contains(visibleClass)).toBe(false);
+
+    field.focus();
+    expect(counter?.element?.classList.contains(visibleClass)).toBe(true);
+    field.dispatchEvent(new Event('paste'));
+    field.value = 'pasted';
+    field.blur();
+    vi.runAllTimers();
+
+    expect(counter?.element?.textContent).toBe('6 / 100 characters');
+    expect(counter?.element?.classList.contains(visibleClass)).toBe(false);
+  });
+
   it('lets data attributes override initialization options', () => {
     const field = document.createElement('input');
     field.setAttribute('data-field-text-counter-max-chars', '4');
@@ -181,6 +279,47 @@ describe('FieldTextCounter', () => {
     expect(counters).toHaveLength(2);
     expect(counters[0]?.element?.textContent).toBe('0/8');
     expect(counters[1]?.element?.textContent).toBe('0/5');
+  });
+
+  it('leaves marked non-text fields untouched', () => {
+    const field = document.createElement('input');
+    field.type = 'hidden';
+    field.value = 'record-reference';
+    field.setAttribute('data-field-text-counter', '');
+    field.setAttribute('data-field-text-counter-max-chars', '6');
+    document.body.append(field);
+
+    expect(FieldTextCounter.autoLoad()).toEqual([]);
+    expect(field.value).toBe('record-reference');
+  });
+
+  it('reuses live counters and creates a new counter after destroy', () => {
+    const field = document.createElement('input');
+    field.setAttribute('data-field-text-counter', '');
+    document.body.append(field);
+    const counter = new FieldTextCounter(field, { maxChars: 10 });
+
+    expect(FieldTextCounter.autoLoad()).toEqual([counter]);
+    expect(FieldTextCounter.autoLoad()).toEqual([counter]);
+    expect(document.querySelectorAll('.field-text-counter')).toHaveLength(1);
+
+    counter.destroy();
+    const [replacement] = FieldTextCounter.autoLoad();
+    expect(replacement).not.toBe(counter);
+    expect(document.querySelectorAll('.field-text-counter')).toHaveLength(1);
+  });
+
+  it('attaches an existing counter after the field is mounted', () => {
+    const field = document.createElement('input');
+    const counter = new FieldTextCounter(field, {
+      msgAppendMethod: 'insertBefore',
+    });
+    expect(counter.element?.isConnected).toBe(false);
+
+    document.body.append(field);
+    counter.update();
+    expect(field.previousElementSibling).toBe(counter.element);
+    expect(counter.element?.textContent).toBe('0 / 100 characters');
   });
 
   it('counts and truncates by grapheme clusters when configured', () => {

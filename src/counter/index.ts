@@ -1,9 +1,32 @@
-import './index.scss';
 import type {
   FieldTextCounterField,
   FieldTextCounterOptions,
   FieldTextCounterVisibility,
-} from '../types';
+} from '../types.js';
+
+interface FieldSelection {
+  start: number;
+  end: number;
+  direction: 'forward' | 'backward' | 'none' | null;
+}
+
+interface FieldEdit {
+  value: string;
+  selection: FieldSelection | null;
+}
+
+const textInputTypes = new Set([
+  'text',
+  'search',
+  'tel',
+  'url',
+  'email',
+  'password',
+]);
+
+function isTextField(field: FieldTextCounterField): boolean {
+  return field.localName === 'textarea' || textInputTypes.has(field.type);
+}
 
 const dataAttributes = {
   maxChars: 'data-field-text-counter-max-chars',
@@ -24,19 +47,45 @@ export const fieldTextCounterDefaults: Required<FieldTextCounterOptions> = {
 };
 
 export class FieldTextCounter {
+  private static readonly counters = new WeakMap<
+    FieldTextCounterField,
+    FieldTextCounter
+  >();
+
   public element: HTMLDivElement | null = null;
 
   private readonly field: FieldTextCounterField;
   private readonly options: Required<FieldTextCounterOptions>;
-  private readonly handleInput = (): void => this.update();
-  private readonly handleFocus = (): void => {
-    this.update();
-    this.show();
+  private lastValue: string;
+  private beforeEdit: FieldEdit | null = null;
+  private composing = false;
+
+  private readonly handleBeforeInput = (event: Event): void => {
+    if (!this.composing && !(event as InputEvent).isComposing) {
+      this.beforeEdit = this.readEdit();
+    }
   };
+  private readonly handleInput = (event: Event): void => {
+    if (!this.composing && !(event as InputEvent).isComposing) {
+      this.finishEdit();
+    }
+  };
+  private readonly handleCompositionStart = (): void => {
+    this.beforeEdit = this.readEdit();
+    this.composing = true;
+  };
+  private readonly handleCompositionEnd = (): void => {
+    this.composing = false;
+    this.finishEdit();
+  };
+  private readonly handleFocus = (): void => this.update();
   private readonly handlePaste = (): void => {
-    window.setTimeout(() => {
-      this.update();
-      this.show();
+    const beforePaste = this.readEdit();
+    setTimeout(() => {
+      const { value } = this.field;
+      if (value !== beforePaste.value && value !== this.lastValue) {
+        this.refresh(beforePaste);
+      }
     }, 0);
   };
   private readonly handleBlur = (): void => {
@@ -52,11 +101,14 @@ export class FieldTextCounter {
       'textarea[data-field-text-counter], input[data-field-text-counter]',
     );
 
-    return Array.from(fields, (field) => {
-      const counter = new FieldTextCounter(field, options);
-      counter.update();
-      return counter;
-    });
+    return Array.from(fields)
+      .filter(isTextField)
+      .map((field) => {
+        const counter =
+          this.counters.get(field) ?? new FieldTextCounter(field, options);
+        counter.update();
+        return counter;
+      });
   }
 
   public constructor(
@@ -64,13 +116,14 @@ export class FieldTextCounter {
     options: FieldTextCounterOptions = {},
   ) {
     this.field = field;
+    this.lastValue = field.value;
     const configuredOptions = {
       ...options,
       ...this.getDataOptions(),
     };
     const maxChars =
       configuredOptions.maxChars ??
-      (field.hasAttribute('maxlength')
+      (field.maxLength >= 0
         ? field.maxLength
         : fieldTextCounterDefaults.maxChars);
     this.options = {
@@ -79,16 +132,24 @@ export class FieldTextCounter {
       maxChars,
     };
 
-    if (this.options.maxChars <= 0) {
+    if (!isTextField(field) || this.options.maxChars <= 0) {
       return;
     }
 
-    this.element = document.createElement('div');
+    FieldTextCounter.counters.get(field)?.destroy();
+    FieldTextCounter.counters.set(field, this);
+    this.element = field.ownerDocument.createElement('div');
     this.element.className = 'field-text-counter';
     this.element.setAttribute('aria-live', 'polite');
 
     this.insertElement();
+    this.field.addEventListener('beforeinput', this.handleBeforeInput);
     this.field.addEventListener('input', this.handleInput);
+    this.field.addEventListener(
+      'compositionstart',
+      this.handleCompositionStart,
+    );
+    this.field.addEventListener('compositionend', this.handleCompositionEnd);
     this.field.addEventListener('focus', this.handleFocus);
     this.field.addEventListener('paste', this.handlePaste);
     this.field.addEventListener('blur', this.handleBlur);
@@ -99,33 +160,117 @@ export class FieldTextCounter {
   }
 
   public update(): void {
-    if (!this.element) {
-      return;
-    }
-
-    const originalScrollTop = this.field.scrollTop;
-    if (this.getCount() > this.options.maxChars) {
-      this.field.value = this.truncateValue(this.field.value);
-      this.field.scrollTop = originalScrollTop;
-    }
-
-    const count = this.getCount();
-    const percentage = (count / this.options.maxChars) * 100;
-    this.element.classList.toggle(
-      'field-text-counter--warning',
-      percentage >= this.options.maxPercentageWarning,
-    );
-    this.element.textContent = this.formatMessage(count);
-    this.show();
+    this.refresh();
   }
 
   public destroy(): void {
+    this.field.removeEventListener('beforeinput', this.handleBeforeInput);
     this.field.removeEventListener('input', this.handleInput);
+    this.field.removeEventListener(
+      'compositionstart',
+      this.handleCompositionStart,
+    );
+    this.field.removeEventListener('compositionend', this.handleCompositionEnd);
     this.field.removeEventListener('focus', this.handleFocus);
     this.field.removeEventListener('paste', this.handlePaste);
     this.field.removeEventListener('blur', this.handleBlur);
     this.element?.remove();
     this.element = null;
+    if (FieldTextCounter.counters.get(this.field) === this) {
+      FieldTextCounter.counters.delete(this.field);
+    }
+  }
+
+  private finishEdit(): void {
+    const beforeEdit = this.beforeEdit ?? {
+      value: this.lastValue,
+      selection: null,
+    };
+    this.beforeEdit = null;
+    this.refresh(beforeEdit);
+  }
+
+  private refresh(beforeEdit?: FieldEdit): void {
+    if (!this.element || this.composing) {
+      return;
+    }
+
+    this.insertElement();
+    let count = this.getCount();
+    if (count > this.options.maxChars) {
+      this.limitValue(beforeEdit);
+      count = this.getCount();
+    }
+
+    this.lastValue = this.field.value;
+    const percentage = (count / this.options.maxChars) * 100;
+    this.element.classList.toggle(
+      'field-text-counter--warning',
+      percentage >= this.options.maxPercentageWarning,
+    );
+    const message = this.formatMessage(count);
+    if (this.element.textContent !== message) {
+      this.element.textContent = message;
+    }
+    const root = this.field.getRootNode();
+    const focused =
+      'activeElement' in root && root.activeElement === this.field;
+    this.element.classList.toggle(
+      'field-text-counter--visible',
+      this.isAlwaysVisible() || focused,
+    );
+  }
+
+  private limitValue(beforeEdit?: FieldEdit): void {
+    const edit = this.readEdit();
+    const previousSelection = beforeEdit?.selection;
+    const editsTail =
+      !beforeEdit ||
+      ((!previousSelection ||
+        previousSelection.end === beforeEdit.value.length) &&
+        edit.value.startsWith(
+          beforeEdit.value.slice(0, previousSelection?.start),
+        ));
+
+    // Trimming the end of a middle edit would remove existing text.
+    const restorePrevious =
+      beforeEdit &&
+      !editsTail &&
+      this.getCountForValue(beforeEdit.value) <= this.options.maxChars;
+    const value = restorePrevious
+      ? beforeEdit.value
+      : this.truncateValue(edit.value);
+    const selection = (restorePrevious && previousSelection) || edit.selection;
+    const removed =
+      restorePrevious && !previousSelection
+        ? Math.max(0, edit.value.length - value.length)
+        : 0;
+    const scrollTop = this.field.scrollTop;
+    this.field.value = value;
+    if (selection) {
+      this.field.setSelectionRange(
+        Math.max(0, selection.start - removed),
+        Math.max(0, selection.end - removed),
+        selection.direction ?? undefined,
+      );
+    }
+    this.field.scrollTop = scrollTop;
+  }
+
+  private readEdit(): FieldEdit {
+    const { value, selectionStart, selectionEnd, selectionDirection } =
+      this.field;
+    return {
+      value,
+      selection:
+        selectionStart === null || selectionEnd === null
+          ? null
+          : {
+              start: selectionStart,
+              end: selectionEnd,
+              direction: selectionDirection,
+            },
+    };
   }
 
   private formatMessage(count: number): string {
@@ -240,14 +385,12 @@ export class FieldTextCounter {
     }
 
     if (this.options.msgAppendMethod === 'insertBefore') {
-      this.field.parentNode.insertBefore(this.element, this.field);
-    } else {
-      this.field.parentNode.insertBefore(this.element, this.field.nextSibling);
+      if (this.field.previousSibling !== this.element) {
+        this.field.before(this.element);
+      }
+    } else if (this.field.nextSibling !== this.element) {
+      this.field.after(this.element);
     }
-  }
-
-  private show(): void {
-    this.element?.classList.add('field-text-counter--visible');
   }
 
   private hide(): void {

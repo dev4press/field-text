@@ -5,7 +5,7 @@ FieldText is a modular TypeScript library for working with input fields. The fir
 ## Installation
 
 ```sh
-npm install field-text
+npm install @dev4press/field-text
 ```
 
 ## Documentation

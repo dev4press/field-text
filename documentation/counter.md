@@ -5,23 +5,25 @@
 ## Installation
 
 ```sh
-npm install field-text
+npm install @dev4press/field-text
 ```
 
 Import the module and its generated stylesheet:
 
 ```ts
-import { FieldTextCounter } from 'field-text';
-import 'field-text/fieldtext.css';
+import { FieldTextCounter } from '@dev4press/field-text';
+import '@dev4press/field-text/fieldtext.css';
 ```
+
+The CommonJS declarations support TypeScript 5.3 and later.
 
 ### jQuery projects without imports
 
-When the library is loaded as a browser bundle in a jQuery project, include the generated stylesheet and UMD bundle with regular `script` and `link` tags. The UMD bundle exposes the library through `window.FieldText`, so no `import` from `field-text` is required.
+When the library is loaded as a browser bundle in a jQuery project, include the generated stylesheet and UMD bundle with regular `script` and `link` tags. The UMD bundle exposes the library through `window.FieldText`.
 
 ```html
-<link rel="stylesheet" href="/path/to/field-text.css">
-<script src="/path/to/field-text.umd.js"></script>
+<link rel="stylesheet" href="/path/to/fieldtext.css">
+<script src="/path/to/fieldtext.umd.cjs"></script>
 ```
 
 Mark the fields that should have a counter with `data-field-text-counter`, then initialize them when jQuery reports that the DOM is ready:
@@ -61,7 +63,7 @@ jQuery(function ($) {
 
 ## Basic usage
 
-Create a counter for a field by passing the field to the constructor and calling `update()` for the initial value. The counter then updates automatically on input, focus, paste, and blur events.
+Create a counter for a field by passing the field to the constructor and calling `update()` for the initial value. The counter then updates automatically as the field is edited and its focus changes. An edit in the middle of the value that would exceed the limit is rejected, preserving the existing text and selection. IME input is checked after composition finishes.
 
 ```ts
 const field = document.querySelector('#message');
@@ -77,7 +79,7 @@ if (field instanceof HTMLTextAreaElement) {
 }
 ```
 
-The constructor inserts the counter after the field by default. Use `msgAppendMethod: 'insertBefore'` to insert it before the field.
+The constructor inserts the counter after the field by default. Use `msgAppendMethod: 'insertBefore'` to insert it before the field. If the field is initialized before mounting, call `update()` after inserting the field to attach the counter.
 
 ## Options
 
@@ -146,7 +148,7 @@ FieldTextCounter.autoLoad({
 });
 ```
 
-The options passed to `autoLoad()` are used for every marked field, while valid field-level data attributes override them. A field with `maxlength` automatically uses that value when `maxChars` is not configured.
+`autoLoad()` scans textareas and text, search, telephone, URL, email, and password inputs. It applies the supplied options to new counters, while valid field-level data attributes take priority. Repeated scans reuse existing counters. A field with `maxlength` automatically uses that value when `maxChars` is not configured.
 
 For boolean visibility values, use `data-field-text-counter-visibility="true"` or `"false"`. The named values `focus` and `always` are recommended for clarity.
 
@@ -177,4 +179,4 @@ Override the CSS variable in your application without changing the component opt
 - `getCount()` — returns the current count using the configured `countMode`.
 - `update()` — synchronizes the message, warning state, and field value.
 - `destroy()` — removes listeners and the generated counter element.
-- `FieldTextCounter.autoLoad(options)` — creates counters for all marked text fields and returns them as an array.
+- `FieldTextCounter.autoLoad(options)` — initializes or reuses counters for marked text fields and returns them as an array.
