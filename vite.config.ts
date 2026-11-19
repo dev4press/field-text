@@ -9,8 +9,8 @@ export default defineConfig({
     lib: {
       entry: resolve(projectRoot, 'src/bundle.ts'),
       name: 'FieldText',
-      fileName: 'fieldtext',
-      cssFileName: 'fieldtext',
+      fileName: 'field-text',
+      cssFileName: 'field-text',
       formats: ['es', 'umd'],
     },
   },

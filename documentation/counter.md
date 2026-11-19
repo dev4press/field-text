@@ -12,7 +12,7 @@ Import the module and its generated stylesheet:
 
 ```ts
 import { FieldTextCounter } from '@dev4press/field-text';
-import '@dev4press/field-text/fieldtext.css';
+import '@dev4press/field-text/field-text.css';
 ```
 
 The CommonJS declarations support TypeScript 5.3 and later.
@@ -22,8 +22,8 @@ The CommonJS declarations support TypeScript 5.3 and later.
 When the library is loaded as a browser bundle in a jQuery project, include the generated stylesheet and UMD bundle with regular `script` and `link` tags. The UMD bundle exposes the library through `window.FieldText`.
 
 ```html
-<link rel="stylesheet" href="/path/to/fieldtext.css">
-<script src="/path/to/fieldtext.umd.cjs"></script>
+<link rel="stylesheet" href="/path/to/field-text.css">
+<script src="/path/to/field-text.umd.cjs"></script>
 ```
 
 Mark the fields that should have a counter with `data-field-text-counter`, then initialize them when jQuery reports that the DOM is ready:

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "skipLibCheck": false,
+    "types": []
+  },
+  "include": ["commonjs.cts", "esm.mts"]
+}

@@ -3,29 +3,29 @@
   "version": "1.0.0",
   "description": "Modular TypeScript library for working with input fields.",
   "type": "module",
-  "main": "./dist/fieldtext.umd.cjs",
-  "module": "./dist/fieldtext.js",
+  "main": "./dist/field-text.umd.cjs",
+  "module": "./dist/field-text.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": {
         "types": "./dist/index.d.ts",
-        "default": "./dist/fieldtext.js"
+        "default": "./dist/field-text.js"
       },
       "require": {
         "types": "./types/index.d.cts",
-        "default": "./dist/fieldtext.umd.cjs"
+        "default": "./dist/field-text.umd.cjs"
       }
     },
-    "./fieldtext.css": {
-      "types": "./types/fieldtext.css.d.ts",
-      "default": "./dist/fieldtext.css"
+    "./field-text.css": {
+      "types": "./types/field-text.css.d.ts",
+      "default": "./dist/field-text.css"
     }
   },
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "test:package": "npm run build && tsc --ignoreConfig --noEmit --strict --module node16 --target es2022 test/package/esm.mts test/package/commonjs.cts",
+    "test:package": "npm run build && tsc -p test/package",
     "lint:ts": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"vite.config.ts\"",
     "lint:scss": "stylelint \"src/**/*.scss\"",
     "lint": "npm run lint:ts && npm run lint:scss",
@@ -51,10 +51,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev4press/fieldtext.git"
+    "url": "https://github.com/dev4press/field-text.git"
   },
   "bugs": {
-    "url": "https://github.com/dev4press/fieldtext/issues"
+    "url": "https://github.com/dev4press/field-text/issues"
   },
   "homepage": "https://www.dev4press.com/",
   "keywords": [

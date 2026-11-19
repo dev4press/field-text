@@ -21,6 +21,7 @@
 - Preserved existing text and selection when a mid-field edit would exceed the limit.
 - Kept focus-only counters hidden until their fields receive focus, including when a paste update runs after blur.
 - Restricted automatic loading to text fields and reused counters across repeated scans.
+- Renamed the build outputs to `field-text.js`, `field-text.umd.cjs`, and `field-text.css`.
 
 ## 0.9.0 / 2026.08.13
 - New: First Beta release

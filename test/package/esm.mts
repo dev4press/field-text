@@ -2,7 +2,7 @@ import {
   FieldTextCounter,
   type FieldTextCounterOptions,
 } from '@dev4press/field-text';
-import '@dev4press/field-text/fieldtext.css';
+import '@dev4press/field-text/field-text.css';
 
 const options: FieldTextCounterOptions = { maxChars: 20 };
 const counter = new FieldTextCounter(

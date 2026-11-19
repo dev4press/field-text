@@ -20,4 +20,4 @@ npm test
 npm run build
 ```
 
-The package publishes `dist/fieldtext.js` as an ES module, `dist/fieldtext.umd.cjs` as a browser-compatible UMD bundle, and `dist/fieldtext.css` as the generated stylesheet.
+The package publishes `dist/field-text.js` as an ES module, `dist/field-text.umd.cjs` as a browser-compatible UMD bundle, and `dist/field-text.css` as the generated stylesheet.
